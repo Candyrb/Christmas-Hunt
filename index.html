@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Christmas Present Hunt</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 16px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .title {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        .word {
+            padding: 12px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+            background: white;
+            cursor: pointer;
+            touch-action: manipulation;
+            transition: all 0.2s;
+        }
+        .word.selected {
+            background: #e2e8f0;
+        }
+        .word.solved-yellow {
+            background: #fef9c3;
+        }
+        .word.solved-green {
+            background: #dcfce7;
+        }
+        .word.solved-blue {
+            background: #dbeafe;
+        }
+        .word.solved-purple {
+            background: #f3e8ff;
+        }
+        .submit-btn {
+            width: 100%;
+            padding: 12px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .submit-btn:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+        }
+        .message {
+            text-align: center;
+            padding: 8px;
+            margin: 8px 0;
+            background: #dbeafe;
+            border-radius: 4px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="title">Christmas Present Hunt</h1>
+        <div id="message" class="message"></div>
+        <div id="grid" class="grid"></div>
+        <button id="submit" class="submit-btn" disabled>Submit (0/4)</button>
+    </div>
+
+    <script>
+        // Game state
+        let gameData = null;
+        let selected = [];
+        let solved = [];
+
+        // Parse game data from URL
+        function loadGameData() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const gameParam = urlParams.get('game');
+            if (gameParam) {
+                try {
+                    const decodedData = atob(gameParam);
+                    gameData = JSON.parse(decodedData);
+                    initializeGame();
+                } catch (e) {
+                    showMessage('Invalid game data');
+                }
+            }
+        }
+
+        function showMessage(text, duration = 2000) {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = text;
+            messageEl.style.display = 'block';
+            if (duration) {
+                setTimeout(() => {
+                    messageEl.style.display = 'none';
+                }, duration);
+            }
+        }
+
+        function toggleWord(word, element) {
+            if (solved.includes(word)) return;
+
+            const index = selected.indexOf(word);
+            if (index > -1) {
+                selected.splice(index, 1);
+                element.classList.remove('selected');
+            } else if (selected.length < 4) {
+                selected.push(word);
+                element.classList.add('selected');
+            }
+
+            const submitBtn = document.getElementById('submit');
+            submitBtn.textContent = `Submit (${selected.length}/4)`;
+            submitBtn.disabled = selected.length !== 4;
+        }
+
+        function checkSelection() {
+            if (selected.length !== 4) return;
+
+            for (const group of gameData.groups) {
+                if (selected.every(word => group.words.includes(word))) {
+                    solved.push(...selected);
+                    selected.forEach(word => {
+                        const el = document.querySelector(`[data-word="${word}"]`);
+                        el.classList.remove('selected');
+                        const colorClass = group.color.replace('bg-', 'solved-');
+                        el.classList.add(colorClass);
+                    });
+                    selected = [];
+                    if (group.category) {
+                        showMessage(`Found a group! ${group.category}`, 0);
+                    }
+                    return;
+                }
+            }
+
+            // No match found
+            selected.forEach(word => {
+                const el = document.querySelector(`[data-word="${word}"]`);
+                el.classList.remove('selected');
+            });
+            selected = [];
+            showMessage('Try again!');
+            
+            const submitBtn = document.getElementById('submit');
+            submitBtn.textContent = 'Submit (0/4)';
+            submitBtn.disabled = true;
+        }
+
+        function initializeGame() {
+            const gridEl = document.getElementById('grid');
+            const allWords = gameData.groups.flatMap(group => group.words);
+            // Shuffle words
+            for (let i = allWords.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [allWords[i], allWords[j]] = [allWords[j], allWords[i]];
+            }
+
+            allWords.forEach(word => {
+                const wordEl = document.createElement('button');
+                wordEl.className = 'word';
+                wordEl.textContent = word;
+                wordEl.dataset.word = word;
+                wordEl.onclick = () => toggleWord(word, wordEl);
+                gridEl.appendChild(wordEl);
+            });
+
+            document.getElementById('submit').onclick = checkSelection;
+        }
+
+        // Start the game
+        loadGameData();
+    </script>
+</body>
+</html>
