@@ -38,6 +38,7 @@
             cursor: pointer;
             touch-action: manipulation;
             transition: all 0.2s;
+            min-height: 44px; /* Better touch target */
         }
         .word.selected {
             background: #e2e8f0;
@@ -75,14 +76,26 @@
             border-radius: 4px;
             display: none;
         }
+        .debug-info {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f8fafc;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            display: none;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1 class="title">Christmas Present Hunt</h1>
         <div id="message" class="message"></div>
-        <div id="grid" class="grid"></div>
+        <div id="grid" class="grid">
+            <!-- Grid will be populated by JavaScript -->
+        </div>
         <button id="submit" class="submit-btn" disabled>Submit (0/4)</button>
+        <div id="debug" class="debug-info"></div>
     </div>
 
     <script>
@@ -91,18 +104,43 @@
         let selected = [];
         let solved = [];
 
+        // Debug function
+        function debugLog(message) {
+            const debugEl = document.getElementById('debug');
+            debugEl.style.display = 'block';
+            debugEl.innerHTML += `<div>${message}</div>`;
+        }
+
         // Parse game data from URL
         function loadGameData() {
+            debugLog('Loading game data...');
             const urlParams = new URLSearchParams(window.location.search);
             const gameParam = urlParams.get('game');
-            if (gameParam) {
-                try {
-                    const decodedData = atob(gameParam);
-                    gameData = JSON.parse(decodedData);
-                    initializeGame();
-                } catch (e) {
-                    showMessage('Invalid game data');
-                }
+            
+            if (!gameParam) {
+                // If no game parameter, show demo data
+                debugLog('No game parameter found, loading demo data');
+                gameData = {
+                    groups: [
+                        { words: ['APPLE', 'BANANA', 'ORANGE', 'GRAPE'], category: 'Fruits', color: 'bg-yellow-200' },
+                        { words: ['DOG', 'CAT', 'BIRD', 'FISH'], category: 'Pets', color: 'bg-green-200' },
+                        { words: ['RED', 'BLUE', 'GREEN', 'YELLOW'], category: 'Colors', color: 'bg-blue-200' },
+                        { words: ['ONE', 'TWO', 'THREE', 'FOUR'], category: 'Numbers', color: 'bg-purple-200' }
+                    ]
+                };
+                initializeGame();
+                return;
+            }
+
+            try {
+                debugLog('Decoding game parameter...');
+                const decodedData = atob(gameParam);
+                gameData = JSON.parse(decodedData);
+                debugLog('Game data loaded successfully');
+                initializeGame();
+            } catch (e) {
+                debugLog('Error loading game data: ' + e.message);
+                showMessage('Invalid game data');
             }
         }
 
@@ -129,6 +167,10 @@
                 element.classList.add('selected');
             }
 
+            updateSubmitButton();
+        }
+
+        function updateSubmitButton() {
             const submitBtn = document.getElementById('submit');
             submitBtn.textContent = `Submit (${selected.length}/4)`;
             submitBtn.disabled = selected.length !== 4;
@@ -150,6 +192,7 @@
                     if (group.category) {
                         showMessage(`Found a group! ${group.category}`, 0);
                     }
+                    updateSubmitButton();
                     return;
                 }
             }
@@ -161,21 +204,24 @@
             });
             selected = [];
             showMessage('Try again!');
-            
-            const submitBtn = document.getElementById('submit');
-            submitBtn.textContent = 'Submit (0/4)';
-            submitBtn.disabled = true;
+            updateSubmitButton();
         }
 
         function initializeGame() {
+            debugLog('Initializing game...');
             const gridEl = document.getElementById('grid');
             const allWords = gameData.groups.flatMap(group => group.words);
+            
             // Shuffle words
             for (let i = allWords.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [allWords[i], allWords[j]] = [allWords[j], allWords[i]];
             }
 
+            // Clear existing grid
+            gridEl.innerHTML = '';
+
+            // Add words to grid
             allWords.forEach(word => {
                 const wordEl = document.createElement('button');
                 wordEl.className = 'word';
@@ -186,10 +232,11 @@
             });
 
             document.getElementById('submit').onclick = checkSelection;
+            debugLog('Game initialized with ' + allWords.length + ' words');
         }
 
         // Start the game
-        loadGameData();
+        window.onload = loadGameData;
     </script>
 </body>
 </html>
