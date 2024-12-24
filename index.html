@@ -29,6 +29,24 @@
             gap: 8px;
             margin-bottom: 20px;
         }
+        .solved-groups {
+            margin-bottom: 20px;
+        }
+        .solved-group {
+            margin-bottom: 8px;
+            padding: 8px;
+            border-radius: 4px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+        .solved-word {
+            padding: 12px 8px;
+            border: 1px solid rgba(0,0,0,0.1);
+            border-radius: 4px;
+            text-align: center;
+            font-size: 14px;
+        }
         .word {
             padding: 12px 8px;
             border: 1px solid #ddd;
@@ -38,21 +56,23 @@
             cursor: pointer;
             touch-action: manipulation;
             transition: all 0.2s;
-            min-height: 44px; /* Better touch target */
+            min-height: 44px;
+            font-size: 14px;
         }
         .word.selected {
             background: #e2e8f0;
+            transform: scale(0.98);
         }
-        .word.solved-yellow {
+        .solved-yellow {
             background: #fef9c3;
         }
-        .word.solved-green {
+        .solved-green {
             background: #dcfce7;
         }
-        .word.solved-blue {
+        .solved-blue {
             background: #dbeafe;
         }
-        .word.solved-purple {
+        .solved-purple {
             background: #f3e8ff;
         }
         .submit-btn {
@@ -76,14 +96,10 @@
             border-radius: 4px;
             display: none;
         }
-        .debug-info {
-            margin-top: 20px;
-            padding: 10px;
-            background: #f8fafc;
-            border-radius: 4px;
-            font-family: monospace;
-            font-size: 12px;
-            display: none;
+        .category-name {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 4px;
         }
     </style>
 </head>
@@ -91,35 +107,22 @@
     <div class="container">
         <h1 class="title">Christmas Present Hunt</h1>
         <div id="message" class="message"></div>
-        <div id="grid" class="grid">
-            <!-- Grid will be populated by JavaScript -->
-        </div>
+        <div id="solvedGroups" class="solved-groups"></div>
+        <div id="grid" class="grid"></div>
         <button id="submit" class="submit-btn" disabled>Submit (0/4)</button>
-        <div id="debug" class="debug-info"></div>
     </div>
 
     <script>
-        // Game state
         let gameData = null;
         let selected = [];
         let solved = [];
+        let solvedGroups = [];
 
-        // Debug function
-        function debugLog(message) {
-            const debugEl = document.getElementById('debug');
-            debugEl.style.display = 'block';
-            debugEl.innerHTML += `<div>${message}</div>`;
-        }
-
-        // Parse game data from URL
         function loadGameData() {
-            debugLog('Loading game data...');
             const urlParams = new URLSearchParams(window.location.search);
             const gameParam = urlParams.get('game');
             
             if (!gameParam) {
-                // If no game parameter, show demo data
-                debugLog('No game parameter found, loading demo data');
                 gameData = {
                     groups: [
                         { words: ['APPLE', 'BANANA', 'ORANGE', 'GRAPE'], category: 'Fruits', color: 'bg-yellow-200' },
@@ -133,13 +136,10 @@
             }
 
             try {
-                debugLog('Decoding game parameter...');
                 const decodedData = atob(gameParam);
                 gameData = JSON.parse(decodedData);
-                debugLog('Game data loaded successfully');
                 initializeGame();
             } catch (e) {
-                debugLog('Error loading game data: ' + e.message);
                 showMessage('Invalid game data');
             }
         }
@@ -176,23 +176,52 @@
             submitBtn.disabled = selected.length !== 4;
         }
 
+        function addSolvedGroup(words, category, colorClass) {
+            const solvedGroupsEl = document.getElementById('solvedGroups');
+            const groupEl = document.createElement('div');
+            groupEl.className = `solved-group ${colorClass}`;
+            
+            if (category) {
+                const categoryEl = document.createElement('div');
+                categoryEl.className = 'category-name';
+                categoryEl.textContent = category;
+                categoryEl.style.gridColumn = '1 / span 4';
+                groupEl.appendChild(categoryEl);
+            }
+
+            words.forEach(word => {
+                const wordEl = document.createElement('div');
+                wordEl.className = 'solved-word';
+                wordEl.textContent = word;
+                groupEl.appendChild(wordEl);
+            });
+
+            solvedGroupsEl.appendChild(groupEl);
+        }
+
         function checkSelection() {
             if (selected.length !== 4) return;
 
             for (const group of gameData.groups) {
                 if (selected.every(word => group.words.includes(word))) {
                     solved.push(...selected);
+                    const colorClass = group.color.replace('bg-', 'solved-');
+                    
+                    // Add to solved groups at the top
+                    addSolvedGroup(selected, group.category, colorClass);
+                    
+                    // Remove solved words from the grid
                     selected.forEach(word => {
                         const el = document.querySelector(`[data-word="${word}"]`);
-                        el.classList.remove('selected');
-                        const colorClass = group.color.replace('bg-', 'solved-');
-                        el.classList.add(colorClass);
+                        if (el) el.remove();
                     });
+
                     selected = [];
+                    updateSubmitButton();
+                    
                     if (group.category) {
                         showMessage(`Found a group! ${group.category}`, 0);
                     }
-                    updateSubmitButton();
                     return;
                 }
             }
@@ -208,7 +237,6 @@
         }
 
         function initializeGame() {
-            debugLog('Initializing game...');
             const gridEl = document.getElementById('grid');
             const allWords = gameData.groups.flatMap(group => group.words);
             
@@ -232,7 +260,6 @@
             });
 
             document.getElementById('submit').onclick = checkSelection;
-            debugLog('Game initialized with ' + allWords.length + ' words');
         }
 
         // Start the game
